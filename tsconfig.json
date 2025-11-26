@@ -8,7 +8,7 @@
     "build",
     "dist",
     "**/*.test.ts",
-    "server/**/*"
+    "_server_local/**/*"
   ],
   "compilerOptions": {
     "incremental": true,

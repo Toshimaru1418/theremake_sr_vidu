@@ -7,21 +7,26 @@ interface VideoLoaderProps {
 
 export default function VideoLoader({ onLoadComplete }: VideoLoaderProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ isMobileの初期値を即座に設定（SSR対策付き）
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // ✅ 画面サイズチェックのuseEffectを簡略化
   useEffect(() => {
-    // Check if screen is mobile size
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
+
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // ✅ 動画再生のuseEffectを isMobile に依存させる
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -35,19 +40,24 @@ export default function VideoLoader({ onLoadComplete }: VideoLoaderProps) {
 
     video.addEventListener("ended", handleEnded);
 
-    // Auto-play video
-    video.play().catch(() => {
-      // If auto-play fails, skip to main content after 2 seconds
-      setTimeout(() => {
-        setIsLoading(false);
-        onLoadComplete();
-      }, 2000);
-    });
+    // ✅ 100ms遅延させて動画ロードを確実にし、
+    //    自動再生失敗時は5秒待機してから本編へ
+    const playTimer = setTimeout(() => {
+      video
+        .play()
+        .catch(() => {
+          setTimeout(() => {
+            setIsLoading(false);
+            onLoadComplete();
+          }, 5000); // 2秒 → 5秒に延長
+        });
+    }, 100);
 
     return () => {
       video.removeEventListener("ended", handleEnded);
+      clearTimeout(playTimer);
     };
-  }, [onLoadComplete]);
+  }, [onLoadComplete, isMobile]);
 
   return (
     <AnimatePresence>
@@ -64,11 +74,11 @@ export default function VideoLoader({ onLoadComplete }: VideoLoaderProps) {
             className="w-full h-full object-cover"
             muted
             playsInline
-            key={isMobile ? 'mobile' : 'desktop'}
+            key={isMobile ? "mobile" : "desktop"}
           >
             <track kind="captions" />
           </video>
-          
+
           {/* Skip button */}
           <button
             onClick={() => {
