@@ -8,26 +8,26 @@ interface VideoLoaderProps {
 export default function VideoLoader({ onLoadComplete }: VideoLoaderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ isMobileの初期値を即座に設定（SSR対策付き）
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth < 768 : false
-  );
+  // ✅ matchMediaを使用してより信頼性の高いモバイル判定を行う
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 768px)").matches;
+  });
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // ✅ 画面サイズチェックのuseEffectを簡略化
+  // ✅ 画面サイズチェックをmatchMediaで行う
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const handleChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
 
-    window.addEventListener("resize", checkMobile);
-
-    return () => window.removeEventListener("resize", checkMobile);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
   // ✅ 動画再生のuseEffectを isMobile に依存させる
   useEffect(() => {
+    console.log("VideoLoader: isMobile =", isMobile);
     const video = videoRef.current;
     if (!video) return;
 
@@ -74,6 +74,7 @@ export default function VideoLoader({ onLoadComplete }: VideoLoaderProps) {
             className="w-full h-full object-cover"
             muted
             playsInline
+            preload="auto"
             key={isMobile ? "mobile" : "desktop"}
           >
             <track kind="captions" />
