@@ -38,24 +38,39 @@ export default function VideoLoader({ onLoadComplete }: VideoLoaderProps) {
       }, 300);
     };
 
-    video.addEventListener("ended", handleEnded);
-
-    // ✅ 100ms遅延させて動画ロードを確実にし、
-    //    自動再生失敗時は5秒待機してから本編へ
-    const playTimer = setTimeout(() => {
+    const playVideo = () => {
       video
         .play()
-        .catch(() => {
+        .catch((err) => {
+          console.error("Video play failed:", err);
+          // 自動再生失敗時は3秒後に強制終了
           setTimeout(() => {
             setIsLoading(false);
             onLoadComplete();
-          }, 5000); // 2秒 → 5秒に延長
+          }, 3000);
         });
-    }, 100);
+    };
+
+    video.addEventListener("ended", handleEnded);
+
+    // 動画の準備ができたら再生
+    if (video.readyState >= 3) {
+      playVideo();
+    } else {
+      video.addEventListener("canplay", playVideo, { once: true });
+    }
+
+    // 安全策：ロードが遅すぎる、または再生が始まらない場合のタイムアウト（8秒）
+    const fallbackTimer = setTimeout(() => {
+      console.warn("VideoLoader: Fallback timer triggered");
+      setIsLoading(false);
+      onLoadComplete();
+    }, 8000);
 
     return () => {
       video.removeEventListener("ended", handleEnded);
-      clearTimeout(playTimer);
+      video.removeEventListener("canplay", playVideo);
+      clearTimeout(fallbackTimer);
     };
   }, [onLoadComplete, isMobile]);
 
@@ -75,6 +90,7 @@ export default function VideoLoader({ onLoadComplete }: VideoLoaderProps) {
             muted
             playsInline
             preload="auto"
+            autoPlay
             key={isMobile ? "mobile" : "desktop"}
           >
             <track kind="captions" />
